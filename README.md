@@ -10,16 +10,18 @@ otomatis di-block kalau confidence terlalu rendah.
 
 ## Install
 
-### Dari GitHub (kalau lo sudah push repo ini ke GitHub)
+Repo ini **public** — siapapun bisa install langsung, gak perlu akses khusus.
+
+### Dari GitHub
 ```
-/plugin marketplace add <username-github>/<nama-repo>
+/plugin marketplace add ajisss/design-agent-plugin
 /plugin install design-agent@design-agent-marketplace
 /reload-plugins
 ```
 
-### Test lokal dulu sebelum push ke GitHub
+### Test lokal (kalau lo develop plugin ini sendiri)
 ```bash
-claude --plugin-dir /path/ke/design-agent-plugin
+claude --plugin-dir /path/ke/folder/design-agent-plugin
 ```
 
 Cek `/agents` dan skill list buat pastiin `design-agent:inspo`,
@@ -60,7 +62,9 @@ skills/
   ├── init/SKILL.md       ← setup project (sekali per project)
   ├── inspo/SKILL.md      ← cari & kurasi referensi
   ├── select/SKILL.md     ← checkpoint pemilihan referensi
-  ├── spec/SKILL.md        ← ekstrak jadi design token + confidence + struktur section
+  ├── spec/
+  │   ├── SKILL.md          ← ekstrak jadi design token + confidence + struktur section
+  │   └── SCHEMA.md         ← dokumentasi struktur registry (di-copy /init ke tiap project)
   └── build/SKILL.md       ← implementasi + visual QA
 hooks/
   ├── hooks.json          ← registrasi hook PostToolUse
