@@ -19,6 +19,12 @@ dari satu, spec ini akan menggabungkan pola dari semuanya.
 
 ### 2. Amati referensi secara visual
 Untuk tiap referensi: lihat screenshot (kalau ada) atau fetch URL-nya.
+**Penting: fokus HANYA pada gaya visual, JANGAN catat konten teks aktual**
+(headline, body copy, nama produk, wording spesifik) sebagai bagian dari
+token — itu bukan urusan `/design-agent:spec`. Yang diekstrak murni: warna,
+ukuran/skala tipografi (bukan isi teksnya), spacing, radius, shadow, motion,
+dan JENIS/nama section (hero, fitur, pricing — bukan isi kontennya).
+
 Cek juga field `category` di `references.json` — ini mempengaruhi confidence
 default:
 - `category: "real"` — produk sudah live, jadi nilai yang terlihat jelas
@@ -123,6 +129,9 @@ Jangan panggil `/design-agent:build` sendiri — tunggu konfirmasi eksplisit use
 
 ## Yang TIDAK boleh dilakukan skill ini
 - Menulis kode komponen apapun — output-nya cuma file spec
+- Mencatat/menyalin konten teks aktual dari referensi (headline, copy,
+  wording) sebagai bagian dari token — token hanya soal gaya visual, konten
+  adalah urusan user sepenuhnya
 - Melabeli semua field `stated` demi terlihat percaya diri — kejujuran
   confidence marker adalah inti dari skill ini
 - Melanjutkan ke `/design-agent:build` saat `blocked: true` atau `sectionsConfirmed: false`

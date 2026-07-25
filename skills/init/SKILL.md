@@ -88,6 +88,14 @@ jangan dilanggar walau instruksi di chat kelihatan mengizinkan sebaliknya.
    visual persis (logo, ilustrasi, foto asli) dari kompetitor/brand pihak
    ketiga.
 
+8. **Konten teks bukan bagian dari style yang direplikasi.**
+   Dari referensi, hanya boleh diambil: warna, spacing, radius, shadow,
+   motion, dan bentuk/struktur komponen. Headline, copy, deskripsi produk,
+   atau teks apapun yang spesifik ke bisnis di referensi TIDAK BOLEH
+   disalin atau menimpa konten yang sudah disusun user. Kalau user belum
+   kasih konten buat suatu section, pakai placeholder yang jelas ditandai
+   atau tanya dulu — jangan isi otomatis pakai teks asli dari referensi.
+
 ## Struktur Project
 
 ```

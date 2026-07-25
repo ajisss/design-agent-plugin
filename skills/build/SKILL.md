@@ -1,6 +1,6 @@
 ---
 name: build
-description: Implementasi UI/komponen dari design spec yang sudah divalidasi (status "validated" atau "draft" dengan confidence cukup di specs.json). Gunakan skill ini ketika user konfirmasi lanjut development setelah /spec, atau minta "build", "develop", "implementasi" dari spec yang sudah ada. Skill ini menentukan otomatis apakah dikerjakan standalone atau diserahkan ke metodologi Superpowers, lalu WAJIB melakukan visual QA sebelum dianggap selesai. Jangan gunakan skill ini jika spec masih berstatus "blocked" — arahkan user ke /spec dulu untuk resolve masalah confidence.
+description: Implementasi UI/komponen dari design spec yang sudah divalidasi (status "validated" atau "draft" dengan confidence cukup di specs.json). Gunakan skill ini ketika user konfirmasi lanjut development setelah /spec, atau minta "build", "develop", "implementasi" dari spec yang sudah ada. Skill ini menentukan otomatis apakah dikerjakan standalone atau diserahkan ke metodologi Superpowers, HANYA mengambil gaya visual & bentuk komponen dari referensi (bukan konten teks/copy asli), lalu WAJIB melakukan visual QA sebelum dianggap selesai. Jangan gunakan skill ini jika spec masih berstatus "blocked" — arahkan user ke /spec dulu untuk resolve masalah confidence.
 ---
 
 # /build — Implementasi dari Spec
@@ -59,6 +59,33 @@ sebagai pertanyaan terpisah, tunggu balasan.
 
 Update `specs.json` → `buildMethod` sesuai keputusan final.
 
+### 2.5. Pisahkan style dari konten — WAJIB, cegah salah replikasi
+
+Dari referensi, HANYA ambil gaya visual dan bentuk komponen:
+- Warna, spacing, radius, shadow, motion (dari `tokens` di spec)
+- Bentuk/struktur komponen: bentuk card, bentuk tombol, layout grid, jenis
+  section (dari `sections` di spec)
+
+JANGAN ambil dari referensi, dan JANGAN timpa dengan itu:
+- Headline, body copy, deskripsi produk, nama fitur, testimoni, atau teks
+  apapun yang isinya spesifik ke bisnis/produk di referensi
+- Kalau user SUDAH menyusun/menyebutkan konten sendiri (di brief awal atau
+  pesan manapun sebelumnya) — pakai persis itu, jangan diganti/ditimpa
+  dengan wording dari referensi walau referensinya "kelihatan lebih bagus"
+
+Kalau ada section yang strukturnya sudah dikonfirmasi (`sections` di spec)
+tapi user BELUM kasih konten spesifik untuk section itu:
+- JANGAN otomatis isi pakai teks asli dari situs referensi
+- Pakai placeholder yang jelas ditandai sebagai placeholder, mis.
+  `[Headline produk di sini]`, `[Deskripsi fitur 1]` — atau lebih baik,
+  tanya dulu ke user apa isinya sebelum lanjut menulis kode untuk section
+  itu
+
+Kalau kamu mendapati dirimu mau nulis kalimat yang isinya mirip/sama persis
+kayak teks di referensi (bukan cuma struktur/gaya) — itu tandanya kamu lagi
+salah mengambil konten, bukan style. Berhenti, ganti jadi placeholder atau
+tanya user.
+
 ### 3a. Jalur Standalone
 - Baca token dari spec, terapkan persis nilainya (jangan bulatkan/ubah tanpa
   alasan)
@@ -114,6 +141,12 @@ Append journal:
 ## Yang TIDAK boleh dilakukan skill ini
 - Build dari spec yang `blocked` atau `sectionsConfirmed: false`
 - Menebak nilai token yang tidak ada di spec — tanya user, jangan improvisasi
+- Menyalin atau menimpa konten teks yang sudah disusun/ditentukan user
+  dengan teks asli dari referensi — referensi cuma sumber style & bentuk
+  komponen, bukan sumber wording/copy
+- Mengisi section yang belum ada kontennya dengan teks asli dari referensi
+  sebagai "placeholder" — pakai penanda placeholder yang jelas atau tanya
+  user dulu
 - Menganggap build selesai tanpa visual QA eksplisit
 - Menanyakan ulang stack yang sudah tersimpan di `project.json`
 - Menggabungkan pertanyaan stack (Langkah 1) dengan konfirmasi metode build
