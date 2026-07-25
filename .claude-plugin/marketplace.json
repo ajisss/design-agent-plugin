@@ -1,0 +1,13 @@
+{
+  "name": "design-agent-marketplace",
+  "owner": {
+    "name": "ajisss"
+  },
+  "plugins": [
+    {
+      "name": "design-agent",
+      "source": "./",
+      "description": "Pipeline design-to-code dengan checkpoint referensi, confidence marker, dan visual QA"
+    }
+  ]
+}

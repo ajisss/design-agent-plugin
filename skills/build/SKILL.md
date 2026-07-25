@@ -1,0 +1,121 @@
+---
+name: build
+description: Implementasi UI/komponen dari design spec yang sudah divalidasi (status "validated" atau "draft" dengan confidence cukup di specs.json). Gunakan skill ini ketika user konfirmasi lanjut development setelah /spec, atau minta "build", "develop", "implementasi" dari spec yang sudah ada. Skill ini menentukan otomatis apakah dikerjakan standalone atau diserahkan ke metodologi Superpowers, lalu WAJIB melakukan visual QA sebelum dianggap selesai. Jangan gunakan skill ini jika spec masih berstatus "blocked" — arahkan user ke /spec dulu untuk resolve masalah confidence.
+---
+
+# /build — Implementasi dari Spec
+
+Tugas skill ini: ubah design spec jadi kode nyata, dengan disiplin — tidak
+improvisasi di luar token, dan tidak dianggap selesai sebelum divalidasi
+visual terhadap referensi asli.
+
+## Langkah
+
+### 0. Cek prasyarat
+Baca `.design/registry/specs.json`, ambil spec yang dimaksud user.
+- Jika `status: "blocked"` → STOP, arahkan user ke `/design-agent:spec` untuk resolve dulu.
+  Jangan lanjut dengan alasan apapun.
+- Jika `sectionsConfirmed: false` → STOP, arahkan user balik ke `/design-agent:spec` buat
+  mastiin dulu struktur halaman (section apa aja yang mau ada) sebelum
+  develop. Jangan menebak struktur sendiri di sini.
+- Jika `status: "built"` sudah ada → konfirmasi ke user apakah ini rebuild/
+  update, bukan build baru.
+
+### 1. Cek stack — tanya HANYA jika belum ada
+Baca `.design/registry/project.json` → field `stack`.
+- Jika `stack.framework` dan `stack.styling` **sudah terisi** → langsung
+  pakai itu, JANGAN tanya lagi.
+- Jika **masih null** (biasanya run pertama kali) → tanyakan singkat ke user:
+  framework (mis. Next.js/React plain/Vue) dan styling (mis. Tailwind+shadcn/
+  plain CSS/lainnya). Simpan jawabannya ke `project.json` sebelum lanjut, jadi
+  run berikutnya tidak perlu tanya lagi.
+
+### 2. Tentukan metode eksekusi — HARD STOP TERPISAH
+
+**PENTING: ini WAJIB jadi giliran/pesan terpisah dari Langkah 1.** Jangan
+gabungkan pertanyaan stack (Langkah 1) dengan konfirmasi metode build
+(langkah ini) dalam satu pesan yang sama, dan jangan putuskan sendiri lalu
+langsung lanjut coding — walau kelihatan "jelas" jawabannya. Setelah user
+menjawab pertanyaan stack, kirim pesan BARU khusus buat konfirmasi ini, lalu
+BENAR-BENAR BERHENTI menunggu balasan user sebelum menyentuh kode apapun.
+
+Cek isi `tokens` di spec:
+- Spec hanya menyentuh komponen visual/UI murni (warna, layout, typography,
+  komponen tampilan) → default **standalone**
+- Spec juga menyentuh kebutuhan backend/API/data model/state management
+  kompleks → default **superpowers**
+
+Tampilkan default itu ke user secara singkat dan tawarkan override:
+> "Fitur ini kelihatannya [murni UI / juga nyentuh backend]. Saya build
+> [standalone / lewat Superpowers]. Mau lanjut atau ganti metode?"
+
+Tunggu konfirmasi (boleh cuma "ya"/"lanjut") sebelum eksekusi. Jika user
+override, catat itu di journal sebagai `build_method_overridden`.
+
+Kalau kamu mendapati dirimu ingin langsung menjawab "iya standalone karena
+ini cuma UI" lalu lanjut nulis kode di pesan yang sama — itu tandanya kamu
+lagi menggabungkan langkah ini dengan langkah sebelumnya. Berhenti, kirim
+sebagai pertanyaan terpisah, tunggu balasan.
+
+Update `specs.json` → `buildMethod` sesuai keputusan final.
+
+### 3a. Jalur Standalone
+- Baca token dari spec, terapkan persis nilainya (jangan bulatkan/ubah tanpa
+  alasan)
+- Ikuti struktur project/stack yang sudah dikonfirmasi di Langkah 1
+- Field dengan confidence `assumed` — implementasikan tapi beri komentar
+  kode singkat menandai itu asumsi, biar mudah direview user nanti
+
+### 3b. Jalur Superpowers
+- Sebelum manggil command apapun, cek dulu apakah Superpowers ter-install
+  (mis. via `/help`, cek apakah `/superpowers:write-plan` ada di daftar).
+  Kalau belum ter-install, beri tahu user terus terang, kasih command
+  install-nya (`/plugin install superpowers@claude-plugins-official`), dan
+  tanyakan apakah mau install dulu atau pindah ke jalur standalone.
+- Kalau sudah ter-install, serahkan spec sebagai konteks ke alur Superpowers
+  (panggil `/superpowers:write-plan` dengan referensi ke file spec, lalu
+  `/superpowers:execute-plan`)
+- Pastikan instruksi token dari spec ikut masuk ke plan yang dibuat Superpowers
+  — jangan biarkan Superpowers menebak ulang nilai visual yang sudah ada di spec
+
+### 4. Visual QA — wajib, bukan opsional
+Setelah kode selesai dan dev server jalan, cari dulu lokasi script
+`visual-diff.py` yang dibundel plugin ini (path-nya bisa beda tergantung
+cara install):
+```bash
+VISUAL_DIFF=$(find ~/.claude/plugins/cache -name visual-diff.py -path "*design-agent*" 2>/dev/null | head -1)
+```
+Lalu jalankan:
+```bash
+python3 "$VISUAL_DIFF" <url-dev-server> \
+  .design/registry/screenshots/<reference-id>.png \
+  .design/registry/screenshots/diff
+```
+- Laporkan hasilnya ke user secara spesifik: bagian mana yang sudah sesuai,
+  bagian mana yang meleset dari spec (warna beda, spacing beda, dll) —
+  jangan cuma kutip skor similarity mentah-mentah, itu heuristik piksel
+  kasar, bukan penilaian estetik
+- Jangan menyimpulkan "sudah sesuai" tanpa menjalankan script ini
+
+Jika script tidak ketemu, atau gagal karena `playwright`/`pillow` belum
+terinstall, atau tidak ada screenshot referensi tersimpan di
+`.design/registry/screenshots/`, katakan itu terus-terang ke user dan minta
+mereka cek manual — jangan mengklaim sudah divalidasi padahal belum.
+
+### 5. Update registry
+`specs.json` → `status: "built"`, `updatedAt` terbaru.
+Append journal:
+```json
+{"ts":"<ISO 8601>","event":"build_started","specId":"S-00X","method":"standalone|superpowers"}
+{"ts":"<ISO 8601>","event":"visual_diff","specId":"S-00X","summary":"<ringkasan hasil banding>"}
+{"ts":"<ISO 8601>","event":"build_completed","specId":"S-00X"}
+```
+
+## Yang TIDAK boleh dilakukan skill ini
+- Build dari spec yang `blocked` atau `sectionsConfirmed: false`
+- Menebak nilai token yang tidak ada di spec — tanya user, jangan improvisasi
+- Menganggap build selesai tanpa visual QA eksplisit
+- Menanyakan ulang stack yang sudah tersimpan di `project.json`
+- Menggabungkan pertanyaan stack (Langkah 1) dengan konfirmasi metode build
+  (Langkah 2) jadi satu pesan, atau memutuskan metode build sendiri tanpa
+  benar-benar berhenti menunggu jawaban user

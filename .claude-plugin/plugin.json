@@ -1,0 +1,5 @@
+{
+  "name": "design-agent",
+  "description": "Pipeline design-to-code: cari referensi (Dribbble/Mobbin/Land-book/dll) → pilih → ekstrak jadi design spec dengan confidence marker → develop dengan visual QA. Mencegah AI menebak-nebak (AI slop) saat mereplikasi referensi design.",
+  "version": "1.0.0"
+}
