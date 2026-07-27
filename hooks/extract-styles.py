@@ -16,7 +16,6 @@ Butuh: playwright + pillow.
 import json
 import os
 import sys
-from PIL import Image
 
 
 def rgb_string_to_hex(rgb_str):
@@ -53,6 +52,8 @@ def aggregate_extraction(raw_sections, color_freq):
 
 
 def crop_section_screenshots(full_page_path, sections, output_dir):
+    from PIL import Image
+
     os.makedirs(output_dir, exist_ok=True)
     full_image = Image.open(full_page_path)
     paths = []

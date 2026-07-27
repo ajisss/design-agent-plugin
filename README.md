@@ -2,7 +2,8 @@
 
 Plugin Claude Code buat pipeline design-to-code: cari referensi (Dribbble,
 Mobbin, Land-book, SaaS Landing Page, dll) → pilih → ekstrak jadi design
-spec dengan confidence marker → develop dengan visual QA wajib.
+spec dengan confidence marker → develop dengan QA berbasis perbandingan
+token wajib (visual diff sebagai bukti pelengkap).
 
 Dibuat buat mencegah AI "ngarang" (AI slop) saat mereplikasi referensi
 design — setiap nilai token yang gak pasti WAJIB dilabeli, dan build
@@ -49,7 +50,7 @@ claude --plugin-dir /path/ke/folder/design-agent-plugin
    `/design-agent:init` secara literal). Ini bikin `CLAUDE.md`, `CONTEXT.md`,
    dan `.design/registry/` di project lo saat ini.
 
-2. **Install dependency** buat hook & visual QA (sekali per environment):
+2. **Install dependency** buat hook & QA token/visual (sekali per environment):
    ```bash
    pip install -r ~/.claude/plugins/cache/design-agent/*/hooks/requirements.txt
    playwright install chromium
@@ -61,7 +62,8 @@ claude --plugin-dir /path/ke/folder/design-agent-plugin
    ada hero, fitur, pricing, CTA" — skill `inspo` otomatis kepanggil.
 
 4. Ikuti alur: pilih referensi → konfirmasi lanjut spec → review
-   confidence → konfirmasi build → visual QA.
+   confidence → konfirmasi build → QA berbasis perbandingan token
+   (visual diff sebagai pelengkap).
 
 ## Struktur plugin
 
@@ -76,7 +78,7 @@ skills/
   ├── spec/
   │   ├── SKILL.md          ← ekstrak jadi design token + confidence + struktur section
   │   └── SCHEMA.md         ← dokumentasi struktur registry (di-copy /init ke tiap project)
-  └── build/SKILL.md       ← implementasi + visual QA
+  └── build/SKILL.md       ← implementasi + QA berbasis perbandingan token
 hooks/
   ├── hooks.json          ← registrasi hook PostToolUse
   ├── validate-tokens.py  ← otomatis: cek hex color di luar spec
@@ -91,7 +93,9 @@ hooks/
 - Registry (`.design/registry/`) adalah sumber kebenaran, bukan chat history
 - Checkpoint adalah hard stop, bukan saran
 - Confidence marker wajib di tiap token yang diekstrak dari referensi
-- Visual QA wajib sebelum build dianggap selesai
+- QA berbasis perbandingan token (extract-styles.py + compare-tokens.py)
+  wajib sebelum build dianggap selesai — visual diff (pixel) hanya
+  bukti pelengkap, bukan penentu lolos/tidak
 
 ## Update plugin
 Setelah edit file di repo ini dan sudah dipush ke GitHub, urutannya

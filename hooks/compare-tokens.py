@@ -102,7 +102,7 @@ def compare_sections(ref_data, build_data, tolerances=None):
     elif len(build_sections) < len(ref_sections):
         structural = "missing_in_build"
     else:
-        structural = "extra_in_build"
+        structural = "no_reference"
 
     missing_section_indexes = list(range(len(build_sections), len(ref_sections)))
     extra_section_indexes = list(range(len(ref_sections), len(build_sections)))
@@ -133,7 +133,11 @@ def compare_sections(ref_data, build_data, tolerances=None):
 
 
 def _has_mismatch(diff):
-    if diff["structural"] != "match":
+    # "no_reference" berarti build punya section ekstra yang memang
+    # diminta user (bukan dari referensi) — bukan mismatch/error.
+    # Hanya "missing_in_build" (build kehilangan section yang ada di
+    # referensi) yang dianggap masalah struktural nyata.
+    if diff["structural"] == "missing_in_build":
         return True
     if diff["missing_colors"]:
         return True

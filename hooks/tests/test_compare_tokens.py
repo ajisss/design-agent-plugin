@@ -105,7 +105,7 @@ def test_compare_sections_detects_extra_section_as_no_reference():
     ref = _sample(["#4f46e5"], [_section(0)])
     build = _sample(["#4f46e5"], [_section(0), _section(1)])
     result = compare_tokens.compare_sections(ref, build)
-    assert result["structural"] == "extra_in_build"
+    assert result["structural"] == "no_reference"
     assert result["extra_section_indexes"] == [1]
 
 
@@ -114,3 +114,40 @@ def test_compare_sections_detects_missing_color():
     build = _sample(["#4f46e5"], [_section(0)])
     result = compare_tokens.compare_sections(ref, build)
     assert result["missing_colors"] == ["#22c55e"]
+
+
+def test_has_mismatch_false_when_only_no_reference():
+    # Build punya section ekstra yang memang diminta user (bukan dari
+    # referensi) — section yang cocok semuanya match, tidak ada warna
+    # hilang. structural == "no_reference" saja TIDAK boleh dihitung
+    # sebagai mismatch (ini yang bikin loop QA di /build bisa konvergen
+    # untuk skenario section tambahan yang sah).
+    ref = _sample(["#4f46e5"], [_section(0)])
+    build = _sample(["#4f46e5"], [_section(0), _section(1)])
+    result = compare_tokens.compare_sections(ref, build)
+    assert result["structural"] == "no_reference"
+    assert compare_tokens._has_mismatch(result) is False
+
+
+def test_has_mismatch_true_when_missing_in_build():
+    ref = _sample(["#4f46e5"], [_section(0), _section(1)])
+    build = _sample(["#4f46e5"], [_section(0)])
+    result = compare_tokens.compare_sections(ref, build)
+    assert result["structural"] == "missing_in_build"
+    assert compare_tokens._has_mismatch(result) is True
+
+
+def test_compare_sections_matches_purely_by_position_not_content():
+    # Dokumentasi behavior saat ini: compare_sections mencocokkan section
+    # murni by index/urutan list, BUKAN by identitas semantik (mis. nama
+    # class DOM atau isi heading). Section 0 di ref dan build di bawah ini
+    # secara konseptual adalah "section" yang berbeda total (heading besar
+    # vs kecil), tapi tetap dibandingkan satu sama lain karena sama-sama di
+    # index 0. Test ini TIDAK menambah deteksi baru — hanya memastikan
+    # (pin) behavior positional-matching yang sudah ada, sebagai
+    # dokumentasi batasan yang disadari (lihat design spec).
+    ref = _sample(["#4f46e5"], [_section(0, font_size=40)])
+    build = _sample(["#4f46e5"], [_section(0, font_size=16)])
+    result = compare_tokens.compare_sections(ref, build)
+    assert result["structural"] == "match"
+    assert result["sections"][0]["typography"][0]["font_size"] == "mismatch"
