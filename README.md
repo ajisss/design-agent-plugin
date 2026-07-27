@@ -80,8 +80,11 @@ skills/
 hooks/
   ├── hooks.json          ← registrasi hook PostToolUse
   ├── validate-tokens.py  ← otomatis: cek hex color di luar spec
-  ├── visual-diff.py      ← manual (dipanggil skill build): screenshot & diff
-  └── requirements.txt
+  ├── extract-styles.py   ← dipanggil skill spec & build: ekstraksi computed-style terukur (Playwright)
+  ├── compare-tokens.py   ← dipanggil skill build: bandingkan token referensi vs hasil build
+  ├── visual-diff.py      ← manual (dipanggil skill build): screenshot & pixel diff pelengkap
+  ├── requirements.txt
+  └── tests/              ← unit test untuk fungsi murni di atas (dev-only)
 ```
 
 ## Prinsip inti
