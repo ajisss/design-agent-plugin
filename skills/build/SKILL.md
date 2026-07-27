@@ -1,6 +1,6 @@
 ---
 name: build
-description: Implementasi UI/komponen dari design spec yang sudah divalidasi (status "validated" atau "draft" dengan confidence cukup di specs.json). Gunakan skill ini ketika user konfirmasi lanjut development setelah /spec, atau minta "build", "develop", "implementasi" dari spec yang sudah ada. Skill ini menentukan otomatis apakah dikerjakan standalone atau diserahkan ke metodologi Superpowers, HANYA mengambil gaya visual & bentuk komponen dari referensi (bukan konten teks/copy asli), lalu WAJIB melakukan visual QA sebelum dianggap selesai. Jangan gunakan skill ini jika spec masih berstatus "blocked" — arahkan user ke /spec dulu untuk resolve masalah confidence.
+description: Implementasi UI/komponen dari design spec yang sudah divalidasi (status "validated" atau "draft" dengan confidence cukup di specs.json). Gunakan skill ini ketika user konfirmasi lanjut development setelah /spec, atau minta "build", "develop", "implementasi" dari spec yang sudah ada. Skill ini menentukan otomatis apakah dikerjakan standalone atau diserahkan ke metodologi Superpowers, HANYA mengambil gaya visual & bentuk komponen dari referensi (bukan konten teks/copy asli), lalu WAJIB melakukan QA berbasis perbandingan token (extract-styles.py + compare-tokens.py) sebelum dianggap selesai. Jangan gunakan skill ini jika spec masih berstatus "blocked" — arahkan user ke /spec dulu untuk resolve masalah confidence.
 ---
 
 # /build — Implementasi dari Spec
@@ -177,13 +177,12 @@ sebutkan status "belum konvergen" secara eksplisit di laporan ke user.
 - Mengisi section yang belum ada kontennya dengan teks asli dari referensi
   sebagai "placeholder" — pakai penanda placeholder yang jelas atau tanya
   user dulu
-- Menganggap build selesai tanpa visual QA eksplisit
+- Menganggap build selesai tanpa menjalankan perbandingan token (Langkah 4)
+  terlebih dahulu — QA berbasis token (compare-tokens.py) adalah mandatory gate,
+  bukan opsional. Pixel diff (Langkah 4b) hanya pelengkap, bukan pengganti
 - Menanyakan ulang stack yang sudah tersimpan di `project.json`
 - Menggabungkan pertanyaan stack (Langkah 1) dengan konfirmasi metode build
   (Langkah 2) jadi satu pesan, atau memutuskan metode build sendiri tanpa
   benar-benar berhenti menunggu jawaban user
-- Melaporkan build "sudah sesuai referensi" berdasarkan pixel diff
-  (Langkah 4b) tanpa menjalankan perbandingan token (Langkah 4) dulu —
-  pixel diff cuma pelengkap, bukan pengganti
 - Melanjutkan loop token-compare lebih dari 3 putaran, atau berhenti
   sebelum 3 putaran padahal masih ada mismatch tanpa alasan jelas
