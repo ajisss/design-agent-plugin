@@ -105,38 +105,68 @@ tanya user.
 - Pastikan instruksi token dari spec ikut masuk ke plan yang dibuat Superpowers
   — jangan biarkan Superpowers menebak ulang nilai visual yang sudah ada di spec
 
-### 4. Visual QA — wajib, bukan opsional
-Setelah kode selesai dan dev server jalan, cari dulu lokasi script
-`visual-diff.py` yang dibundel plugin ini (path-nya bisa beda tergantung
-cara install):
+### 4. QA berbasis token — wajib, bukan opsional
+QA sekarang berbasis perbandingan token terukur (bukan cuma pixel diff),
+supaya kebal terhadap perbedaan konten teks (placeholder vs teks asli
+referensi yang memang sengaja tidak disalin — lihat Langkah 2.5). Cari
+dulu lokasi kedua script yang dibundel plugin ini:
 ```bash
-VISUAL_DIFF=$(find ~/.claude/plugins/cache -name visual-diff.py -path "*design-agent*" 2>/dev/null | head -1)
+EXTRACT_STYLES=$(find ~/.claude/plugins/cache -name "extract-styles.py" -path "*design-agent*" 2>/dev/null | head -1)
+COMPARE_TOKENS=$(find ~/.claude/plugins/cache -name "compare-tokens.py" -path "*design-agent*" 2>/dev/null | head -1)
+VISUAL_DIFF=$(find ~/.claude/plugins/cache -name "visual-diff.py" -path "*design-agent*" 2>/dev/null | head -1)
 ```
-Lalu jalankan:
+
+Kalau spec ini tidak punya `measuredTokens.referenceJsonPath` (referensinya
+`source: "vision"`, gak ada data terukur buat dibandingkan) — lewati loop
+di bawah, langsung ke pixel diff manual (Langkah 4b) dan bilang terus
+terang ke user bahwa QA token-based tidak bisa jalan untuk spec ini.
+
+Kalau ada `referenceJsonPath`, jalankan loop berikut (maksimal 3 putaran):
+
+1. Pastikan dev server jalan di `<url-dev-server>`.
+2. Ekstrak style dari hasil build:
+   ```bash
+   python3 "$EXTRACT_STYLES" <url-dev-server> .design/registry/measured/<specId>-build.json .design/registry/measured/<specId>-build-sections
+   ```
+3. Bandingkan dengan referensi:
+   ```bash
+   python3 "$COMPARE_TOKENS" <measuredTokens.referenceJsonPath> .design/registry/measured/<specId>-build.json
+   ```
+   Exit code `0` = semua token dalam toleransi. Exit code `1` = ada
+   mismatch — baca output JSON-nya, cari field mana yang `"mismatch"`.
+4. Kalau ada mismatch: perbaiki NILAI SPESIFIK itu di kode (tetap dari
+   token yang sudah ada di spec — jangan menebak nilai baru), lalu ulangi
+   dari langkah 2.
+5. Berhenti kalau: exit code `0` (semua match), ATAU sudah 3 putaran.
+   Kalau masih ada mismatch di putaran ke-3, JANGAN klaim selesai — lapor
+   apa adanya ke user (lihat Langkah 5).
+
+### 4b. Bukti visual pelengkap
+Setelah loop di atas selesai (baik konvergen atau mentok 3 putaran),
+jalankan pixel diff sekali sebagai bukti visual tambahan untuk user
+(bukan penentu lolos/tidak):
 ```bash
 python3 "$VISUAL_DIFF" <url-dev-server> \
   .design/registry/screenshots/<reference-id>.png \
   .design/registry/screenshots/diff
 ```
-- Laporkan hasilnya ke user secara spesifik: bagian mana yang sudah sesuai,
-  bagian mana yang meleset dari spec (warna beda, spacing beda, dll) —
-  jangan cuma kutip skor similarity mentah-mentah, itu heuristik piksel
-  kasar, bukan penilaian estetik
-- Jangan menyimpulkan "sudah sesuai" tanpa menjalankan script ini
-
-Jika script tidak ketemu, atau gagal karena `playwright`/`pillow` belum
-terinstall, atau tidak ada screenshot referensi tersimpan di
-`.design/registry/screenshots/`, katakan itu terus-terang ke user dan minta
-mereka cek manual — jangan mengklaim sudah divalidasi padahal belum.
+Laporkan hasilnya sebagai pelengkap, bukan pengganti hasil `compare-tokens.py`
+di Langkah 4. Kalau script/dependency tidak ada, bilang terus terang dan
+lanjut tanpa bukti pixel — jangan blokir laporan token-based yang sudah ada.
 
 ### 5. Update registry
 `specs.json` → `status: "built"`, `updatedAt` terbaru.
 Append journal:
 ```json
 {"ts":"<ISO 8601>","event":"build_started","specId":"S-00X","method":"standalone|superpowers"}
-{"ts":"<ISO 8601>","event":"visual_diff","specId":"S-00X","summary":"<ringkasan hasil banding>"}
+{"ts":"<ISO 8601>","event":"token_compare","specId":"S-00X","iteration":<n>,"mismatches":<jumlah>}
+{"ts":"<ISO 8601>","event":"token_compare_converged","specId":"S-00X","iteration":<n>}
+{"ts":"<ISO 8601>","event":"visual_diff","specId":"S-00X","summary":"<ringkasan hasil banding pixel pelengkap>"}
 {"ts":"<ISO 8601>","event":"build_completed","specId":"S-00X"}
 ```
+Kalau loop mentok 3 putaran dengan mismatch tersisa, JANGAN tulis
+`token_compare_converged` — cukup event `token_compare` terakhir, dan
+sebutkan status "belum konvergen" secara eksplisit di laporan ke user.
 
 ## Yang TIDAK boleh dilakukan skill ini
 - Build dari spec yang `blocked` atau `sectionsConfirmed: false`
@@ -152,3 +182,8 @@ Append journal:
 - Menggabungkan pertanyaan stack (Langkah 1) dengan konfirmasi metode build
   (Langkah 2) jadi satu pesan, atau memutuskan metode build sendiri tanpa
   benar-benar berhenti menunggu jawaban user
+- Melaporkan build "sudah sesuai referensi" berdasarkan pixel diff
+  (Langkah 4b) tanpa menjalankan perbandingan token (Langkah 4) dulu —
+  pixel diff cuma pelengkap, bukan pengganti
+- Melanjutkan loop token-compare lebih dari 3 putaran, atau berhenti
+  sebelum 3 putaran padahal masih ada mismatch tanpa alasan jelas
