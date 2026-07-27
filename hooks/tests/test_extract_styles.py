@@ -1,5 +1,7 @@
 import os
 import importlib.util
+import tempfile
+from PIL import Image
 
 spec = importlib.util.spec_from_file_location(
     "extract_styles", os.path.join(os.path.dirname(__file__), "..", "extract-styles.py")
@@ -48,3 +50,21 @@ def test_aggregate_extraction_preserves_section_order():
     ]
     result = extract_styles.aggregate_extraction(raw_sections, {})
     assert [s["index"] for s in result["sections"]] == [0, 1]
+
+
+def test_crop_section_screenshots_writes_one_file_per_section():
+    with tempfile.TemporaryDirectory() as tmp:
+        full_page_path = os.path.join(tmp, "full.png")
+        Image.new("RGB", (1440, 1600), color="white").save(full_page_path)
+
+        sections = [
+            {"index": 0, "bbox": {"y": 0, "width": 1440, "height": 800}},
+            {"index": 1, "bbox": {"y": 800, "width": 1440, "height": 800}},
+        ]
+        output_dir = os.path.join(tmp, "sections")
+        paths = extract_styles.crop_section_screenshots(full_page_path, sections, output_dir)
+
+        assert len(paths) == 2
+        assert all(os.path.exists(p) for p in paths)
+        cropped = Image.open(paths[0])
+        assert cropped.size == (1440, 800)

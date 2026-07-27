@@ -14,7 +14,9 @@ Butuh: playwright + pillow.
     playwright install chromium
 """
 import json
+import os
 import sys
+from PIL import Image
 
 
 def rgb_string_to_hex(rgb_str):
@@ -48,6 +50,21 @@ def aggregate_extraction(raw_sections, color_freq):
         })
 
     return {"colors": {"dominant": dominant_hex}, "sections": sections}
+
+
+def crop_section_screenshots(full_page_path, sections, output_dir):
+    os.makedirs(output_dir, exist_ok=True)
+    full_image = Image.open(full_page_path)
+    paths = []
+    for section in sorted(sections, key=lambda s: s["index"]):
+        bbox = section["bbox"]
+        top = bbox["y"]
+        bottom = min(bbox["y"] + bbox["height"], full_image.height)
+        crop = full_image.crop((0, top, bbox["width"], bottom))
+        out_path = os.path.join(output_dir, f"section-{section['index']}.png")
+        crop.save(out_path)
+        paths.append(out_path)
+    return paths
 
 
 if __name__ == "__main__":
