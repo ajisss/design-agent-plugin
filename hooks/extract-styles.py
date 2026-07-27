@@ -77,6 +77,8 @@ def dominant_colors_from_image(image_path, top_n=5):
     from PIL import Image
 
     img = Image.open(image_path).convert("RGB")
+    # NEAREST (bukan default bicubic) biar downscale gak nyampur warna asli
+    # jadi warna blended yang gak ada di source-nya.
     img_small = img.resize((150, 150), Image.Resampling.NEAREST)
     quantized = img_small.quantize(colors=top_n, method=Image.Quantize.MEDIANCUT)
     palette = quantized.getpalette()
