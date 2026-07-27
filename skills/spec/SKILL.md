@@ -17,6 +17,29 @@ Baca `.design/registry/references.json`, ambil semua entry berstatus
 `"selected"` untuk fitur/halaman yang mau di-spec sekarang. Kalau ada lebih
 dari satu, spec ini akan menggabungkan pola dari semuanya.
 
+### 1.5. Ekstrak computed style asli (kalau referensinya live)
+Untuk tiap referensi terpilih dengan `category: "real"` **dan** field
+`url`-nya berupa link yang bisa langsung di-fetch (bukan sekadar
+screenshot upload) — jalankan dulu tool ekstraksi yang dibundel plugin
+ini:
+```bash
+EXTRACT_STYLES=$(find ~/.claude/plugins/cache -name "extract-styles.py" -path "*design-agent*" 2>/dev/null | head -1)
+python3 "$EXTRACT_STYLES" <url-referensi> .design/registry/measured/<refId>.json .design/registry/measured/<refId>-sections
+```
+Kalau berhasil (exit code 0): hasil JSON ini jadi **sumber utama** buat
+mengisi token di Langkah 2 — bukan tebakan. Simpan path file JSON-nya ke
+`measuredTokens.referenceJsonPath` di spec (lihat `SCHEMA.md`), dan set
+`measuredTokens.source: "extract-styles"`.
+
+Kalau gagal (exit code 1 — situs block bot, butuh login, script tidak
+ketemu, atau Playwright/Pillow belum terinstall): catat itu terus terang,
+set `measuredTokens.source: "vision"`, dan lanjut ke Langkah 2 seperti
+biasa (observasi visual manual) — jangan blokir seluruh proses `/spec`
+hanya karena satu referensi gagal diekstrak.
+
+Untuk referensi `category: "concept"` atau tanpa URL fetchable, lewati
+langkah ini — langsung ke Langkah 2 (`measuredTokens.source: "vision"`).
+
 ### 2. Amati referensi secara visual
 Untuk tiap referensi: lihat screenshot (kalau ada) atau fetch URL-nya.
 **Penting: fokus HANYA pada gaya visual, JANGAN catat konten teks aktual**
@@ -49,7 +72,12 @@ Perhatikan detail konkret, bukan kesan umum:
 
 ### 3. Beri confidence marker di SETIAP nilai
 Untuk tiap token, tentukan levelnya jujur:
-- `stated` (1.0) — terlihat jelas & terukur langsung dari referensi
+- `stated` (1.0) — terlihat jelas & terukur langsung dari referensi.
+  **Sejak ada `extract-styles.py`: `stated` HANYA boleh dipakai untuk
+  field yang nilainya berasal dari hasil ekstraksi terukur
+  (`measuredTokens.source: "extract-styles"`).** Kalau sumbernya
+  observasi visual (`source: "vision"`) — walau kelihatan jelas dan
+  konsisten di mata — confidence maksimalnya `discussed`, bukan `stated`.
 - `discussed` (0.8) — pola konsisten tapi butuh sedikit interpretasi
   (mis. terlihat pakai skala 8px tapi tidak semua nilai kelihatan persis)
 - `inferred` (0.5) — logical inference dari pola yang ada (mis. dari 3 ukuran
@@ -101,6 +129,10 @@ ID lanjut dari ID spec terakhir yang ada. Kalau `.design/registry/specs.json`
 belum ada sama sekali (project belum pernah di-`/design-agent:init` atau
 belum ada kandidat dari `/design-agent:inspo`), buat dulu isinya
 `{"specs": []}` sebelum nambah entry.
+
+Isi juga field `measuredTokens` di entry spec sesuai hasil Langkah 1.5
+(`source`, `referenceJsonPath`, dan `sections` dari file JSON hasil
+ekstraksi kalau ada).
 
 Jika `blocked: true`:
 - JANGAN lanjutkan ke `/design-agent:build`
