@@ -67,5 +67,131 @@ def crop_section_screenshots(full_page_path, sections, output_dir):
     return paths
 
 
+_EXTRACT_JS = """
+() => {
+  function pickSections() {
+    const candidates = Array.from(document.querySelectorAll('body > *'))
+      .concat(Array.from(document.querySelectorAll('section, header, footer')));
+    const seen = new Set();
+    const sections = [];
+    for (const el of candidates) {
+      if (seen.has(el)) continue;
+      const rect = el.getBoundingClientRect();
+      if (rect.height < 80) continue; // skip elemen kecil (nav item, dsb)
+      seen.add(el);
+      sections.push(el);
+    }
+    return sections.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+  }
+
+  function styleOf(el) { return window.getComputedStyle(el); }
+
+  const colorFreq = {};
+  function tally(value) {
+    if (!value || value === 'rgba(0, 0, 0, 0)' || value === 'transparent') return;
+    colorFreq[value] = (colorFreq[value] || 0) + 1;
+  }
+  document.querySelectorAll('*').forEach((el) => {
+    const s = styleOf(el);
+    tally(s.backgroundColor);
+    tally(s.color);
+  });
+
+  const sections = pickSections().map((el, index) => {
+    const rect = el.getBoundingClientRect();
+    const headings = Array.from(el.querySelectorAll('h1, h2, h3, h4')).slice(0, 3).map((h) => {
+      const s = styleOf(h);
+      return {
+        level: parseInt(h.tagName[1], 10),
+        font_size: parseFloat(s.fontSize),
+        font_weight: s.fontWeight,
+        line_height: parseFloat(s.lineHeight) || parseFloat(s.fontSize),
+        font_family: s.fontFamily,
+        color: s.color,
+      };
+    });
+    const buttons = Array.from(el.querySelectorAll('button, a.button, [role="button"]')).slice(0, 3).map((b) => {
+      const s = styleOf(b);
+      return {
+        background_color: s.backgroundColor,
+        color: s.color,
+        border_radius: parseFloat(s.borderRadius) || 0,
+        padding: s.padding,
+        box_shadow: s.boxShadow,
+      };
+    });
+    const containers = Array.from(el.querySelectorAll('[class*="card"]')).slice(0, 3).map((c) => {
+      const s = styleOf(c);
+      return {
+        border_radius: parseFloat(s.borderRadius) || 0,
+        box_shadow: s.boxShadow,
+        padding: s.padding,
+        gap: parseFloat(s.gap) || 0,
+      };
+    });
+    return {
+      index,
+      bbox: { y: Math.round(rect.top + window.scrollY), width: Math.round(rect.width), height: Math.round(rect.height) },
+      headings, buttons, containers,
+    };
+  });
+
+  return { sections, colorFreq };
+}
+"""
+
+
+def run(url, output_json_path, screenshots_dir, viewport=None):
+    from playwright.sync_api import sync_playwright
+
+    viewport = viewport or {"width": 1440, "height": 900}
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport=viewport)
+        page.goto(url, wait_until="networkidle")
+        raw = page.evaluate(_EXTRACT_JS)
+        full_page_path = os.path.join(screenshots_dir, "_full-page.png")
+        os.makedirs(screenshots_dir, exist_ok=True)
+        page.screenshot(path=full_page_path, full_page=True)
+        browser.close()
+
+    result = aggregate_extraction(raw["sections"], raw["colorFreq"])
+    section_screenshots = crop_section_screenshots(full_page_path, result["sections"], screenshots_dir)
+    for section, path in zip(result["sections"], section_screenshots):
+        section["screenshot_path"] = path
+
+    with open(output_json_path, "w") as f:
+        json.dump(result, f, indent=2)
+
+    return result
+
+
+def main():
+    if len(sys.argv) < 3:
+        print("Usage: extract-styles.py <url> <output.json> [screenshots_dir]")
+        sys.exit(1)
+
+    url, output_json_path = sys.argv[1], sys.argv[2]
+    screenshots_dir = sys.argv[3] if len(sys.argv) > 3 else os.path.join(
+        os.path.dirname(output_json_path) or ".", "sections"
+    )
+
+    try:
+        result = run(url, output_json_path, screenshots_dir)
+    except ImportError:
+        print("[extract-styles] Playwright/Pillow belum terinstall.")
+        print("Jalankan: pip install playwright pillow && playwright install chromium")
+        sys.exit(1)
+    except Exception as exc:
+        print(f"[extract-styles] Gagal ekstraksi dari {url}: {exc}")
+        sys.exit(1)
+
+    print(f"[extract-styles] {len(result['sections'])} section terdeteksi, "
+          f"{len(result['colors']['dominant'])} warna dominan.")
+    print(f"[extract-styles] Hasil tersimpan: {output_json_path}")
+    sys.exit(0)
+
+
 if __name__ == "__main__":
-    print("extract-styles.py: fungsi agregasi siap, ekstraksi browser menyusul di Task 5")
+    main()
