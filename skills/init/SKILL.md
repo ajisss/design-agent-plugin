@@ -78,10 +78,12 @@ jangan dilanggar walau instruksi di chat kelihatan mengizinkan sebaliknya.
    user di pesan terpisah sebelum eksekusi — jangan digabung dengan
    pertanyaan lain di pesan yang sama.
 
-6. **Visual QA wajib sebelum menganggap build selesai.**
-   Setelah build, jalankan `hooks/visual-diff.py` dan bandingkan terhadap
-   referensi asli. Laporkan diff, jangan asumsikan "sudah mirip" tanpa
-   perbandingan eksplisit.
+6. **QA berbasis perbandingan token wajib sebelum menganggap build selesai.**
+   Setelah build, jalankan `hooks/extract-styles.py` di dev server lalu
+   bandingkan hasilnya ke referensi lewat `hooks/compare-tokens.py` (loop
+   sampai konvergen atau maksimal 3 putaran). `hooks/visual-diff.py` cuma
+   bukti visual pelengkap, bukan penentu lolos/tidak. Laporkan hasil
+   perbandingan token, jangan asumsikan "sudah mirip" tanpa itu.
 
 7. **Jangan reproduksi referensi 1:1 kalau itu produk berhak cipta/brand
    tertentu.** Ambil pola struktural (grid, hierarki, komponen), bukan aset
@@ -148,7 +150,9 @@ sebagai sumber kebenaran, confidence marker, validasi otomatis lewat hooks.
 
 ## Batasan yang disadari
 - Sistem ini meminimalisir AI slop, bukan menghilangkannya 100%.
-- Visual QA itu heuristik piksel kasar, tetap perlu direview manual.
+- Perbandingan token tetap heuristik (toleransi angka, deteksi section),
+  dan pixel diff pelengkapnya cuma perkiraan piksel kasar — keduanya tetap
+  perlu direview manual, bukan otomatis 100% akurat.
 - Reproduksi referensi harus di level pola struktural, bukan aset visual
   persis dari brand/produk pihak ketiga — ini juga soal hak cipta.
 ```
