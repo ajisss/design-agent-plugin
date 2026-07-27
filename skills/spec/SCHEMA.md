@@ -84,6 +84,13 @@ Design spec hasil ekstraksi `/spec` dari referensi terpilih.
         "blocked": false
       },
       "buildMethod": "standalone | superpowers | null",
+      "measuredTokens": {
+        "source": "extract-styles | vision",
+        "referenceJsonPath": "string | null",
+        "sections": [
+          { "name": "hero", "screenshotPath": "string", "bbox": { "y": 0, "height": 800 } }
+        ]
+      },
       "status": "draft | validated | blocked | built",
       "createdAt": "ISO 8601",
       "updatedAt": "ISO 8601"
@@ -110,6 +117,20 @@ ATAU `sectionsConfirmed: false`. Struktur halaman yang belum dikonfirmasi
 user itu setara dengan spec yang belum siap dipakai, terlepas dari
 confidence numerik token visualnya.
 
+### `measuredTokens`
+`source: "extract-styles"` berarti field token di spec ini diisi dari
+data terukur (`hooks/extract-styles.py` dijalankan ke URL referensi live),
+bukan tebakan visual — field yang bersumber dari sini boleh dilabeli
+confidence `stated`. `source: "vision"` berarti referensi tidak fetchable
+(screenshot statis atau situs terproteksi) sehingga ekstraksi tetap manual
+lewat observasi visual — field dari sumber ini confidence-nya di-cap
+maksimal `discussed`, tidak boleh `stated`.
+
+`referenceJsonPath` menunjuk ke file JSON mentah hasil `extract-styles.py`
+untuk referensi ini (dipakai `/design-agent:build` buat dibandingkan
+dengan hasil build lewat `compare-tokens.py`). `sections[].bbox` dan
+`screenshotPath` dipakai untuk QA per-section.
+
 ## `journal.jsonl`
 Append-only audit trail. Satu baris = satu event. Jangan pernah di-edit,
 cuma di-append.
@@ -120,8 +141,12 @@ cuma di-append.
 {"ts":"ISO 8601","event":"spec_blocked","specId":"S-002","reason":"assumedRatio 0.45 > 0.3"}
 {"ts":"ISO 8601","event":"build_started","specId":"S-001","method":"standalone"}
 {"ts":"ISO 8601","event":"visual_diff","specId":"S-001","diffScore":0.91}
+{"ts":"ISO 8601","event":"styles_extracted","specId":"S-001","source":"live-url","refId":"R-001"}
+{"ts":"ISO 8601","event":"token_compare","specId":"S-001","iteration":1,"mismatches":3}
+{"ts":"ISO 8601","event":"token_compare_converged","specId":"S-001","iteration":2}
 ```
 
 Event types yang dipakai skill lain: `reference_selected`, `reference_rejected`,
 `spec_extracted`, `spec_blocked`, `spec_reanalyzed`, `build_started`,
-`build_method_overridden`, `visual_diff`, `build_completed`.
+`build_method_overridden`, `visual_diff`, `build_completed`,
+`styles_extracted`, `token_compare`, `token_compare_converged`.
