@@ -26,6 +26,8 @@ ini:
 EXTRACT_STYLES=$(find ~/.claude/plugins/cache -name "extract-styles.py" -path "*design-agent*" 2>/dev/null | head -1)
 python3 "$EXTRACT_STYLES" <url-referensi> .design/registry/measured/<refId>.json .design/registry/measured/<refId>-sections
 ```
+Kalau `$EXTRACT_STYLES` kosong (script tidak ketemu di lokasi cache expected): perlakukan seperti exit code 1 — set `measuredTokens.source: "vision"` dan lanjut ke Langkah 2. Jangan jalankan `python3` dengan path kosong.
+
 Kalau berhasil (exit code 0): hasil JSON ini jadi **sumber utama** buat
 mengisi token di Langkah 2 — bukan tebakan. Simpan path file JSON-nya ke
 `measuredTokens.referenceJsonPath` di spec (lihat `SCHEMA.md`), dan set
