@@ -50,3 +50,67 @@ def test_compare_color_close():
 
 def test_compare_color_mismatch():
     assert compare_tokens.compare_color("#4f46e5", "#22c55e", tolerance=30) == "mismatch"
+
+
+def _sample(dominant_colors, sections):
+    return {"colors": {"dominant": dominant_colors}, "sections": sections}
+
+
+def _section(index, font_size=40, radius=8, btn_bg="#4f46e5"):
+    return {
+        "index": index,
+        "bbox": {"y": index * 800, "width": 1440, "height": 800},
+        "typography": [{
+            "level": 1, "font_size": font_size, "font_weight": "700",
+            "line_height": font_size + 8, "font_family": "Inter, sans-serif",
+            "color": "#111827",
+        }],
+        "buttons": [{
+            "background_color": btn_bg, "color": "#ffffff",
+            "border_radius": radius, "padding": "12px 24px", "box_shadow": "none",
+        }],
+        "containers": [{
+            "border_radius": radius, "box_shadow": "none",
+            "padding": "24px", "gap": 16,
+        }],
+    }
+
+
+def test_compare_sections_all_match():
+    ref = _sample(["#4f46e5", "#ffffff"], [_section(0)])
+    build = _sample(["#4f46e5", "#ffffff"], [_section(0)])
+    result = compare_tokens.compare_sections(ref, build)
+    assert result["structural"] == "match"
+    assert result["sections"][0]["typography"][0]["font_size"] == "match"
+    assert result["sections"][0]["buttons"][0]["background_color"] == "match"
+    assert result["missing_colors"] == []
+
+
+def test_compare_sections_detects_font_size_mismatch():
+    ref = _sample(["#4f46e5"], [_section(0, font_size=40)])
+    build = _sample(["#4f46e5"], [_section(0, font_size=24)])
+    result = compare_tokens.compare_sections(ref, build)
+    assert result["sections"][0]["typography"][0]["font_size"] == "mismatch"
+
+
+def test_compare_sections_detects_missing_section():
+    ref = _sample(["#4f46e5"], [_section(0), _section(1)])
+    build = _sample(["#4f46e5"], [_section(0)])
+    result = compare_tokens.compare_sections(ref, build)
+    assert result["structural"] == "missing_in_build"
+    assert result["missing_section_indexes"] == [1]
+
+
+def test_compare_sections_detects_extra_section_as_no_reference():
+    ref = _sample(["#4f46e5"], [_section(0)])
+    build = _sample(["#4f46e5"], [_section(0), _section(1)])
+    result = compare_tokens.compare_sections(ref, build)
+    assert result["structural"] == "extra_in_build"
+    assert result["extra_section_indexes"] == [1]
+
+
+def test_compare_sections_detects_missing_color():
+    ref = _sample(["#4f46e5", "#22c55e"], [_section(0)])
+    build = _sample(["#4f46e5"], [_section(0)])
+    result = compare_tokens.compare_sections(ref, build)
+    assert result["missing_colors"] == ["#22c55e"]
