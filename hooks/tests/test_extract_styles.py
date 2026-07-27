@@ -68,3 +68,39 @@ def test_crop_section_screenshots_writes_one_file_per_section():
         assert all(os.path.exists(p) for p in paths)
         cropped = Image.open(paths[0])
         assert cropped.size == (1440, 800)
+
+
+def test_crop_section_screenshots_clamps_overflow():
+    """Verify that crop_section_screenshots clamps bbox overflow to image height."""
+    with tempfile.TemporaryDirectory() as tmp:
+        full_page_path = os.path.join(tmp, "full.png")
+        # Create a 1000px tall image
+        Image.new("RGB", (1440, 1000), color="white").save(full_page_path)
+
+        # Define a section that claims to go from y=900 to y=1400 (height=500)
+        # but the image is only 1000px tall, so it should be clamped to 100px
+        sections = [
+            {"index": 0, "bbox": {"y": 900, "width": 1440, "height": 500}},
+        ]
+        output_dir = os.path.join(tmp, "sections")
+        paths = extract_styles.crop_section_screenshots(full_page_path, sections, output_dir)
+
+        assert len(paths) == 1
+        assert os.path.exists(paths[0])
+        cropped = Image.open(paths[0])
+        # bottom = min(900 + 500, 1000) = 1000
+        # So crop height = 1000 - 900 = 100
+        assert cropped.size == (1440, 100)
+
+
+def test_crop_section_screenshots_empty_sections():
+    """Verify that crop_section_screenshots handles empty sections list gracefully."""
+    with tempfile.TemporaryDirectory() as tmp:
+        full_page_path = os.path.join(tmp, "full.png")
+        Image.new("RGB", (1440, 1000), color="white").save(full_page_path)
+
+        sections = []
+        output_dir = os.path.join(tmp, "sections")
+        paths = extract_styles.crop_section_screenshots(full_page_path, sections, output_dir)
+
+        assert paths == []
