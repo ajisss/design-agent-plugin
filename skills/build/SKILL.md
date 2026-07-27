@@ -7,7 +7,7 @@ description: Implementasi UI/komponen dari design spec yang sudah divalidasi (st
 
 Tugas skill ini: ubah design spec jadi kode nyata, dengan disiplin — tidak
 improvisasi di luar token, dan tidak dianggap selesai sebelum divalidasi
-visual terhadap referensi asli.
+berdasarkan perbandingan token terukur (compare-tokens.py) terhadap referensi.
 
 ## Langkah
 
