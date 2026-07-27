@@ -19,6 +19,36 @@ import sys
 import os
 
 
+def prepare_for_diff(ref, res):
+    """
+    Prepare two images for comparison by cropping to their common overlapping region.
+
+    Instead of stretching/resizing (which distorts), this crops both images to the
+    common area they share, preserving aspect ratios.
+
+    Args:
+        ref: PIL Image (reference)
+        res: PIL Image (result)
+
+    Returns:
+        tuple of (ref_cropped, res_cropped, metadata_dict)
+        where metadata_dict contains:
+        - reference_size: original size of ref as (width, height)
+        - result_size: original size of res as (width, height)
+        - size_mismatch: True if sizes differ, False if they match
+    """
+    common_width = min(ref.width, res.width)
+    common_height = min(ref.height, res.height)
+    ref_cropped = ref.crop((0, 0, common_width, common_height))
+    res_cropped = res.crop((0, 0, common_width, common_height))
+    meta = {
+        "reference_size": ref.size,
+        "result_size": res.size,
+        "size_mismatch": ref.size != res.size,
+    }
+    return ref_cropped, res_cropped, meta
+
+
 def main():
     if len(sys.argv) < 4:
         print("Usage: visual-diff.py <url> <reference_screenshot> <output_dir>")
@@ -60,9 +90,13 @@ def main():
     ref = Image.open(reference_path).convert("RGB")
     res = Image.open(result_path).convert("RGB")
 
-    # Samakan ukuran biar bisa dibandingkan piksel
-    res_resized = res.resize(ref.size)
-    diff = ImageChops.difference(ref, res_resized)
+    # Crop ke area overlap (tanpa stretch/resize yang distorts)
+    ref_cropped, res_cropped, size_meta = prepare_for_diff(ref, res)
+    diff = ImageChops.difference(ref_cropped, res_cropped)
+    if size_meta["size_mismatch"]:
+        print(f"[visual-diff] PERINGATAN: ukuran beda — referensi {size_meta['reference_size']}, "
+              f"hasil {size_meta['result_size']}. Diff dihitung dari area overlap saja "
+              f"(bukan di-stretch), jadi skor di bawah ini hanya mewakili area yang overlap.")
     bbox = diff.getbbox()
 
     diff_path = os.path.join(output_dir, "diff.png")
