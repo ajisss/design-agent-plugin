@@ -93,6 +93,36 @@ def test_crop_section_screenshots_clamps_overflow():
         assert cropped.size == (1440, 100)
 
 
+def test_dominant_colors_from_image_orders_by_frequency():
+    with tempfile.TemporaryDirectory() as tmp:
+        img = Image.new("RGB", (100, 100), color=(255, 255, 255))
+        # Paint a small red square (5x5 = 25px) into a mostly-white 100x100 image (10000px)
+        # so white is clearly dominant and red is clearly secondary.
+        for x in range(5):
+            for y in range(5):
+                img.putpixel((x, y), (255, 0, 0))
+        img_path = os.path.join(tmp, "screenshot.png")
+        img.save(img_path)
+
+        colors = extract_styles.dominant_colors_from_image(img_path, top_n=2)
+
+        assert len(colors) == 2
+        assert colors[0] == "#ffffff"
+        assert colors[1] == "#ff0000"
+
+
+def test_dominant_colors_from_image_respects_top_n():
+    with tempfile.TemporaryDirectory() as tmp:
+        img = Image.new("RGB", (60, 60), color=(255, 255, 255))
+        img_path = os.path.join(tmp, "solid.png")
+        img.save(img_path)
+
+        colors = extract_styles.dominant_colors_from_image(img_path, top_n=3)
+
+        assert len(colors) <= 3
+        assert colors[0] == "#ffffff"
+
+
 def test_crop_section_screenshots_empty_sections():
     """Verify that crop_section_screenshots handles empty sections list gracefully."""
     with tempfile.TemporaryDirectory() as tmp:

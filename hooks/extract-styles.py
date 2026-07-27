@@ -7,7 +7,12 @@ terstruktur. Dipakai /design-agent:spec (untuk referensi) dan
 angka terukur, bukan tebakan visual.
 
 Cara pakai:
-    python3 hooks/extract-styles.py <url> <output.json> [--screenshots-dir <dir>]
+    python3 hooks/extract-styles.py <url> <output.json> [screenshots_dir]
+    python3 hooks/extract-styles.py --from-image <screenshot.png> <output.json>
+
+Mode kedua (--from-image) dipakai untuk referensi concept/non-fetchable:
+sampling warna dominan langsung dari file screenshot via color quantization
+(PIL), tanpa perlu browser/network.
 
 Butuh: playwright + pillow.
     pip install playwright pillow
@@ -66,6 +71,22 @@ def crop_section_screenshots(full_page_path, sections, output_dir):
         crop.save(out_path)
         paths.append(out_path)
     return paths
+
+
+def dominant_colors_from_image(image_path, top_n=5):
+    from PIL import Image
+
+    img = Image.open(image_path).convert("RGB")
+    img_small = img.resize((150, 150), Image.Resampling.NEAREST)
+    quantized = img_small.quantize(colors=top_n, method=Image.Quantize.MEDIANCUT)
+    palette = quantized.getpalette()
+    color_counts = sorted(quantized.getcolors(), reverse=True, key=lambda item: item[0])
+
+    hex_colors = []
+    for _count, idx in color_counts[:top_n]:
+        r, g, b = palette[idx * 3: idx * 3 + 3]
+        hex_colors.append("#{:02x}{:02x}{:02x}".format(r, g, b))
+    return hex_colors
 
 
 _EXTRACT_JS = """
@@ -169,6 +190,28 @@ def run(url, output_json_path, screenshots_dir, viewport=None):
 
 
 def main():
+    if len(sys.argv) >= 2 and sys.argv[1] == "--from-image":
+        if len(sys.argv) < 4:
+            print("Usage: extract-styles.py --from-image <screenshot.png> <output.json>")
+            sys.exit(1)
+        image_path, output_json_path = sys.argv[2], sys.argv[3]
+        try:
+            colors = dominant_colors_from_image(image_path)
+        except ImportError:
+            print("[extract-styles] Pillow belum terinstall.")
+            print("Jalankan: pip install pillow")
+            sys.exit(1)
+        except Exception as exc:
+            print(f"[extract-styles] Gagal ekstrak warna dari {image_path}: {exc}")
+            sys.exit(1)
+
+        with open(output_json_path, "w") as f:
+            json.dump({"colors": {"dominant": colors}}, f, indent=2)
+
+        print(f"[extract-styles] {len(colors)} warna dominan diekstrak dari {image_path}.")
+        print(f"[extract-styles] Hasil tersimpan: {output_json_path}")
+        sys.exit(0)
+
     if len(sys.argv) < 3:
         print("Usage: extract-styles.py <url> <output.json> [screenshots_dir]")
         sys.exit(1)

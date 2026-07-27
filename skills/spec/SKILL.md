@@ -41,6 +41,21 @@ hanya karena satu referensi gagal diekstrak.
 
 Untuk referensi `category: "concept"` atau tanpa URL fetchable, lewati
 langkah ini — langsung ke Langkah 2 (`measuredTokens.source: "vision"`).
+Tapi kalau referensi itu punya file screenshot (cek field `screenshotPath`
+di entry-nya di `references.json` — skema ada di `SCHEMA.md`), tetap
+sampling warna dominannya lewat quantization, bukan tebakan mata murni:
+```bash
+EXTRACT_STYLES=$(find ~/.claude/plugins/cache -name "extract-styles.py" -path "*design-agent*" 2>/dev/null | head -1)
+if [ -n "$EXTRACT_STYLES" ]; then
+  python3 "$EXTRACT_STYLES" --from-image <screenshotPath> .design/registry/measured/<refId>-colors.json
+fi
+```
+Hasil `colors.dominant` di file itu jadi acuan konkret buat nilai hex warna
+di Langkah 2 — `measuredTokens.source` tetap `"vision"` secara keseluruhan
+(struktur/spacing tetap estimasi visual), ini cuma menguatkan bagian WARNA
+saja. Kalau screenshot tidak ada, `$EXTRACT_STYLES` kosong, atau script-nya
+gagal, jangan blokir proses — lanjut dengan estimasi warna visual biasa
+seperti sebelumnya.
 
 ### 2. Amati referensi secara visual
 Untuk tiap referensi: lihat screenshot (kalau ada) atau fetch URL-nya.
