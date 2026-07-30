@@ -25,7 +25,13 @@ import sys
 
 def rgb_string_to_hex(rgb_str):
     nums = rgb_str[rgb_str.index("(") + 1: rgb_str.index(")")].split(",")
-    r, g, b = (int(n.strip()) for n in nums[:3])
+    r, g, b = (int(float(n.strip())) for n in nums[:3])
+    if len(nums) >= 4 and float(nums[3].strip()) == 0:
+        # rgba(..., 0) = fully transparent — TIDAK sama dengan hitam solid.
+        # Konversi buta ke "#000000" bikin elemen transparan (tombol tanpa
+        # bg, overlay, dll) salah dibaca sebagai warna hitam opaque di
+        # analisis kontras/konsistensi hilir (measured checks).
+        return "transparent"
     return "#{:02x}{:02x}{:02x}".format(r, g, b)
 
 
@@ -165,6 +171,84 @@ _EXTRACT_JS = """
 """
 
 
+def _goto_with_fallback(page, url):
+    """Beberapa situs (embed form pihak ketiga seperti HubSpot, live chat
+    widget, analytics polling) bikin network gak pernah benar-benar idle,
+    jadi wait_until="networkidle" timeout walau halamannya sendiri sudah
+    selesai render. Coba networkidle dulu (paling akurat — computed style
+    dijamin sudah settle), fallback berjenjang kalau itu gagal supaya tetap
+    dapat data daripada nyerah total.
+
+    Return: nama strategi yang berhasil dipakai (buat dicatat di output,
+    biar skill pemanggil tau seberapa "settle" data ini).
+    """
+    from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
+    try:
+        page.goto(url, wait_until="networkidle", timeout=15000)
+        return "networkidle"
+    except PlaywrightTimeoutError:
+        pass
+
+    try:
+        page.goto(url, wait_until="domcontentloaded", timeout=30000)
+        # Jeda manual gantiin networkidle — cukup buat mayoritas konten
+        # async (lazy image, font, komponen client-side) selesai render,
+        # walau widget yang polling terus-menerus tetap gak akan "idle".
+        page.wait_for_timeout(3000)
+        return "domcontentloaded-fallback"
+    except PlaywrightTimeoutError:
+        pass
+
+    # Situs benar-benar berat/lambat — percobaan terakhir paling minimal,
+    # cuma nunggu response pertama diterima (HTML mungkin belum full-parsed).
+    page.goto(url, wait_until="commit", timeout=45000)
+    page.wait_for_timeout(5000)
+    return "commit-fallback"
+
+
+def _scroll_through_page(page, step_delay_ms=250):
+    """Banyak landing page modern pakai scroll-reveal (IntersectionObserver:
+    konten fade-in/slide-in baru dipicu saat elemen masuk viewport). Kalau
+    screenshot langsung diambil di posisi scroll awal tanpa pernah discroll,
+    section-section itu keburu ke-capture dalam keadaan kosong/transparan —
+    padahal sebenarnya bukan gagal ekstraksi, cuma belum ke-trigger.
+    Scroll bertahap dari atas ke bawah (lalu balik ke atas) supaya semua
+    animasi reveal sempat jalan sebelum full-page screenshot diambil.
+    """
+    total_height = page.evaluate("document.body.scrollHeight")
+    viewport_height = page.viewport_size["height"]
+    if not total_height or not viewport_height:
+        return
+    steps = max(1, total_height // viewport_height)
+    for i in range(steps + 1):
+        page.evaluate(f"window.scrollTo(0, {i * viewport_height})")
+        page.wait_for_timeout(step_delay_ms)
+    page.evaluate("window.scrollTo(0, 0)")
+    page.wait_for_timeout(step_delay_ms)
+
+
+def _neutralize_fixed_position(page):
+    """Playwright/Chromium full_page screenshot resize viewport ke tinggi
+    penuh dokumen lalu re-render — elemen `position: fixed`/`sticky`
+    (navbar, chat widget) yang harusnya nempel di viewport malah "kebeku"
+    di posisi scroll terakhir sebelum resize, jadi kelihatan nyangkut di
+    tengah halaman di screenshot (padahal user asli gak pernah lihat itu,
+    fixed/sticky selalu nempel ke viewport beneran). Netralkan ke
+    `position: static` SESAAT sebelum screenshot final — JS/CSS asli page
+    sudah gak dipakai lagi setelah ini (browser langsung ditutup), jadi
+    aman biarpun reflow jadi berantakan.
+    """
+    page.evaluate("""() => {
+        document.querySelectorAll('*').forEach((el) => {
+            const pos = getComputedStyle(el).position;
+            if (pos === 'fixed' || pos === 'sticky') {
+                el.style.setProperty('position', 'static', 'important');
+            }
+        });
+    }""")
+
+
 def run(url, output_json_path, screenshots_dir, viewport=None):
     from playwright.sync_api import sync_playwright
 
@@ -173,14 +257,17 @@ def run(url, output_json_path, screenshots_dir, viewport=None):
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page(viewport=viewport)
-        page.goto(url, wait_until="networkidle")
+        load_strategy = _goto_with_fallback(page, url)
+        _scroll_through_page(page)
         raw = page.evaluate(_EXTRACT_JS)
         full_page_path = os.path.join(screenshots_dir, "_full-page.png")
         os.makedirs(screenshots_dir, exist_ok=True)
+        _neutralize_fixed_position(page)
         page.screenshot(path=full_page_path, full_page=True)
         browser.close()
 
     result = aggregate_extraction(raw["sections"], raw["colorFreq"])
+    result["meta"] = {"loadStrategy": load_strategy}
     section_screenshots = crop_section_screenshots(full_page_path, result["sections"], screenshots_dir)
     for section, path in zip(result["sections"], section_screenshots):
         section["screenshot_path"] = path
@@ -235,6 +322,13 @@ def main():
 
     print(f"[extract-styles] {len(result['sections'])} section terdeteksi, "
           f"{len(result['colors']['dominant'])} warna dominan.")
+    strategy = result.get("meta", {}).get("loadStrategy", "networkidle")
+    if strategy != "networkidle":
+        print(f"[extract-styles] PERINGATAN: networkidle timeout, dipakai fallback "
+              f"'{strategy}'. Halaman mungkin punya widget/polling yang bikin network "
+              f"gak pernah idle (mis. live chat, form embed pihak ketiga). Data computed "
+              f"style tetap diambil, tapi konten yang lazy-load lambat mungkin belum "
+              f"sempat settle sepenuhnya.")
     print(f"[extract-styles] Hasil tersimpan: {output_json_path}")
     sys.exit(0)
 
